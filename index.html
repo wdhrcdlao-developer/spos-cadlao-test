@@ -37,9 +37,10 @@
   td.num,th.num{text-align:right}
   .tablewrap{overflow-x:auto}
   .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;background:#e8edf2}
-  .pill.active,.pill.received{background:#dff3e7;color:var(--ok)}
+  .pill.active,.pill.delivered,.pill.approved{background:#dff3e7;color:var(--ok)}
   .pill.inactive,.pill.cancelled{background:#f8e1df;color:var(--danger)}
-  .pill.sent{background:#e1ecfa;color:#1a56a3}
+  .pill.submitted,.pill.reviewed{background:#e1ecfa;color:#1a56a3}
+  .pill.under-review{background:#fdf0d5;color:#8a5a00}
   .hidden{display:none!important}
   .msg{padding:9px 12px;border-radius:7px;margin-bottom:12px;font-size:14px}
   .msg.err{background:#f8e1df;color:var(--danger)}
@@ -107,7 +108,7 @@
       <div class="card" id="supListCard">
         <div class="bar">
           <input id="supSearch" placeholder="Search name, contact or products...">
-          <select id="supFilter" style="max-width:160px"><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+          <select id="supFilter" style="max-width:160px"><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option><option value="under review">Under review</option></select>
           <button class="btn" id="supNew">+ Enroll supplier</button>
         </div>
         <div class="tablewrap"><table>
@@ -125,8 +126,20 @@
           <div><label>Email</label><input id="s_email" type="email"></div>
           <div><label>TIN</label><input id="s_tin"></div>
           <div class="full"><label>Address</label><input id="s_address"></div>
-          <div><label>Payment terms</label><input id="s_terms" placeholder="e.g. 30 days, COD"></div>
-          <div><label>Status</label><select id="s_status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+          <div><label>Payment terms</label><select id="s_terms">
+            <option value="">Select…</option>
+            <option value="payment upon pick-up">Payment upon pick-up</option>
+            <option value="payment upon delivery">Payment upon delivery</option>
+            <option value="advance payment">Advance payment</option>
+            <option value="terms payment">Terms payment</option></select></div>
+          <div><label>Mode of payment</label><select id="s_mode">
+            <option value="">Select…</option>
+            <option value="cash">Cash</option>
+            <option value="credit card">Credit card</option>
+            <option value="check payment">Check payment</option>
+            <option value="bank transfer">Bank transfer</option>
+            <option value="gcash">GCash</option></select></div>
+          <div class="full"><label>Status</label><select id="s_status"><option value="active">Active</option><option value="inactive">Inactive</option><option value="under review">Under review</option></select></div>
           <div class="full"><label>Products supplied</label><textarea id="s_products" placeholder="One per line or comma separated"></textarea></div>
           <div class="full"><label>Notes</label><textarea id="s_notes"></textarea></div>
         </div>
@@ -144,7 +157,7 @@
       <div class="card" id="poListCard">
         <div class="bar">
           <input id="poSearch" placeholder="Search PO number or supplier...">
-          <select id="poFilter" style="max-width:160px"><option value="">All statuses</option><option>draft</option><option>sent</option><option>received</option><option>cancelled</option></select>
+          <select id="poFilter" style="max-width:160px"><option value="">All statuses</option><option>submitted</option><option>reviewed</option><option>approved</option><option>cancelled</option><option>delivered</option></select>
           <button class="btn" id="poNew">+ New purchase order</button>
         </div>
         <div class="tablewrap"><table>
@@ -160,7 +173,7 @@
         </div>
         <div class="grid">
           <div><label>PO number</label><input id="p_no" readonly></div>
-          <div><label>Status</label><select id="p_status"><option>draft</option><option>sent</option><option>received</option><option>cancelled</option></select></div>
+          <div><label>Status</label><select id="p_status"><option>submitted</option><option>reviewed</option><option>approved</option><option>cancelled</option><option>delivered</option></select></div>
           <div class="full"><label>Supplier *</label><select id="p_supplier"></select></div>
           <div><label>PO date *</label><input id="p_date" type="date"></div>
           <div><label>Expected delivery</label><input id="p_expected" type="date"></div>
@@ -292,7 +305,7 @@ function renderSuppliers(){
       <td><strong>${esc(s.name)}</strong><div class="muted">${esc(s.email||'')}</div></td>
       <td>${esc(s.contact_person||'')}<div class="muted">${esc(s.phone||'')}</div></td>
       <td class="muted">${esc((s.products||'').slice(0,90))}${(s.products||'').length>90?'…':''}</td>
-      <td><span class="pill ${esc(s.status)}">${esc(s.status)}</span></td>
+      <td><span class="pill ${esc(String(s.status).replace(/\s+/g,'-'))}">${esc(s.status)}</span></td>
       <td><div class="row-actions">
         <button class="btn alt sm" onclick="openSupplier('${s.$id}')">Open</button>
         <button class="btn alt sm" onclick="printSupplier('${s.$id}')">Print</button>
@@ -320,7 +333,7 @@ window.openSupplier = id => {
   currentSup = s;
   $('s_name').value = s.name||''; $('s_contact').value = s.contact_person||''; $('s_phone').value = s.phone||'';
   $('s_email').value = s.email||''; $('s_tin').value = s.tin||''; $('s_address').value = s.address||'';
-  $('s_terms').value = s.payment_terms||''; $('s_status').value = s.status||'active';
+  $('s_terms').value = s.payment_terms||''; $('s_mode').value = s.mode_of_payment||''; $('s_status').value = s.status||'active';
   $('s_products').value = s.products||''; $('s_notes').value = s.notes||'';
   $('supFormTitle').textContent = 'Supplier: ' + s.name;
   $('supDelete').classList.remove('hidden');
@@ -336,7 +349,8 @@ function readSupForm(){
     email: $('s_email').value.trim(),
     tin: $('s_tin').value.trim(),
     address: $('s_address').value.trim(),
-    payment_terms: $('s_terms').value.trim(),
+    payment_terms: $('s_terms').value,
+    mode_of_payment: $('s_mode').value,
     status: $('s_status').value,
     products: $('s_products').value.trim(),
     notes: $('s_notes').value.trim()
@@ -404,6 +418,7 @@ function printSupplierData(s, created){
       <tr><td>Address</td><td>${esc(s.address)}</td></tr>
       <tr><td>TIN</td><td>${esc(s.tin)}</td></tr>
       <tr><td>Payment terms</td><td>${esc(s.payment_terms)}</td></tr>
+      <tr><td>Mode of payment</td><td>${esc(s.mode_of_payment)}</td></tr>
       <tr><td>Products supplied</td><td class="pre">${esc(prods)}</td></tr>
       <tr><td>Notes</td><td class="pre">${esc(s.notes)}</td></tr>
       <tr><td>Date enrolled</td><td>${esc(prettyDate(created))}</td></tr>
@@ -503,7 +518,7 @@ $('poNew').onclick = () => {
   currentPO = null;
   $('poFormTitle').textContent = 'New purchase order';
   $('p_no').value = nextPONumber();
-  $('p_status').value = 'draft';
+  $('p_status').value = 'submitted';
   $('p_date').value = new Date().toISOString().slice(0,10);
   $('p_expected').value = ''; $('p_notes').value = '';
   $('itemsBody').innerHTML = ''; addItemRow();
@@ -592,6 +607,7 @@ function printPOData(po, supplier, items){
       <tr><td>Contact</td><td>${esc([supplier.contact_person, supplier.phone].filter(Boolean).join(' · '))}</td></tr>
       <tr><td>Address</td><td>${esc(supplier.address)}</td></tr>
       <tr><td>Payment terms</td><td>${esc(supplier.payment_terms)}</td></tr>
+      <tr><td>Mode of payment</td><td>${esc(supplier.mode_of_payment)}</td></tr>
     </table>
     <table class="lines" style="width:100%;border-collapse:collapse;margin-top:14px">
       <thead><tr><th>#</th><th>Description</th><th>Unit</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
