@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cadlao Supplier and PO System</title>
+<script src="https://cdn.jsdelivr.net/npm/appwrite@16.0.2"></script>
+<style>
+  :root{--bg:#f4f6f8;--card:#fff;--ink:#1d2733;--muted:#6b7785;--line:#dde3ea;--brand:#0f6e6e;--brand-d:#0b5252;--danger:#b3261e;--ok:#1e7a46}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--ink);font-size:15px}
+  header{background:var(--brand);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  header h1{font-size:18px;margin:0}
+  header .who{font-size:13px;opacity:.9}
+  nav{display:flex;gap:6px;padding:12px 20px 0}
+  nav button{border:0;background:transparent;padding:10px 16px;font-size:15px;cursor:pointer;border-bottom:3px solid transparent;color:var(--muted)}
+  nav button.active{color:var(--brand);border-color:var(--brand);font-weight:600}
+  main{padding:16px 20px;max-width:1100px;margin:0 auto}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  .bar input,.bar select{flex:1;min-width:140px}
+  input,select,textarea{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;background:#fff}
+  textarea{min-height:70px;resize:vertical}
+  input:disabled,select:disabled,textarea:disabled{background:#f1f3f5;color:#333}
+  label{display:block;font-size:12px;color:var(--muted);margin:10px 0 4px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+  @media(max-width:640px){.grid{grid-template-columns:1fr}}
+  .full{grid-column:1/-1}
+  button.btn{background:var(--brand);color:#fff;border:0;border-radius:7px;padding:9px 14px;font:inherit;cursor:pointer}
+  button.btn:hover{background:var(--brand-d)}
+  button.btn.alt{background:#fff;color:var(--brand);border:1px solid var(--brand)}
+  button.btn.danger{background:#fff;color:var(--danger);border:1px solid var(--danger)}
+  button.btn.sm{padding:5px 9px;font-size:13px}
+  table{width:100%;border-collapse:collapse}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  td.num,th.num{text-align:right}
+  .tablewrap{overflow-x:auto}
+  .pill{display:inline-block;padding:2px 9px;border-radius:99px;font-size:12px;background:#e8edf2}
+  .pill.active,.pill.received{background:#dff3e7;color:var(--ok)}
+  .pill.inactive,.pill.cancelled{background:#f8e1df;color:var(--danger)}
+  .pill.sent{background:#e1ecfa;color:#1a56a3}
+  .hidden{display:none!important}
+  .msg{padding:9px 12px;border-radius:7px;margin-bottom:12px;font-size:14px}
+  .msg.err{background:#f8e1df;color:var(--danger)}
+  .msg.ok{background:#dff3e7;color:var(--ok)}
+  #login{max-width:360px;margin:12vh auto;padding:0 16px}
+  #login h2{margin:0 0 4px}
+  .muted{color:var(--muted);font-size:13px}
+  .row-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .items-table input{padding:6px 7px}
+  .total-row{text-align:right;font-size:17px;font-weight:600;margin-top:10px}
+
+  /* ---------- print ---------- */
+  #printArea{display:none}
+  @media print{
+    body{background:#fff}
+    header,nav,main,#login,.toast{display:none!important}
+    #printArea{display:block!important}
+    @page{size:A4;margin:16mm}
+  }
+  #printArea{font-family:Georgia,'Times New Roman',serif;color:#000;font-size:12.5px;padding:0}
+  #printArea h1{font-size:20px;margin:0;text-align:center}
+  #printArea h2{font-size:15px;margin:4px 0 14px;text-align:center;text-transform:uppercase;letter-spacing:.08em}
+  #printArea .sub{text-align:center;font-size:11px;margin-bottom:6px}
+  #printArea table.kv td{border:0;padding:4px 6px;vertical-align:top}
+  #printArea table.kv td:first-child{width:150px;font-weight:bold}
+  #printArea table.lines th,#printArea table.lines td{border:1px solid #000;padding:5px 7px;font-size:12px;color:#000}
+  #printArea table.lines th{background:#eee}
+  #printArea .sigs{display:flex;gap:28px;margin-top:70px}
+  #printArea .sig{flex:1;text-align:center}
+  #printArea .sig .line{border-top:1px solid #000;padding-top:4px;margin-top:46px;min-height:34px}
+  #printArea .sig .label{font-weight:bold;text-align:left}
+  #printArea .sig .role{font-size:11px}
+  #printArea .pre{white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<!-- LOGIN WALL -->
+<div id="login">
+  <div class="card">
+    <h2>Cadlao Resort and Restaurant</h2>
+    <p class="muted">Supplier and PO System. Please sign in.</p>
+    <div id="loginErr" class="msg err hidden"></div>
+    <label>Email</label><input id="lEmail" type="email" autocomplete="username">
+    <label>Password</label><input id="lPass" type="password" autocomplete="current-password">
+    <div style="margin-top:14px"><button class="btn" style="width:100%" id="lBtn">Sign in</button></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <header>
+    <h1>Cadlao Resort and Restaurant · Supplier and PO System</h1>
+    <div class="who"><span id="whoEmail"></span> &nbsp; <button class="btn alt sm" id="logoutBtn">Sign out</button></div>
+  </header>
+  <nav>
+    <button id="tabSup" class="active">Suppliers</button>
+    <button id="tabPO">Purchase Orders</button>
+  </nav>
+  <main>
+    <div id="globalMsg" class="msg hidden"></div>
+
+    <!-- SUPPLIERS -->
+    <section id="secSup">
+      <div class="card" id="supListCard">
+        <div class="bar">
+          <input id="supSearch" placeholder="Search name, contact or products...">
+          <select id="supFilter" style="max-width:160px"><option value="">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+          <button class="btn" id="supNew">+ Enroll supplier</button>
+        </div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Name</th><th>Contact</th><th>Products</th><th>Status</th><th></th></tr></thead>
+          <tbody id="supBody"></tbody>
+        </table></div>
+      </div>
+
+      <div class="card hidden" id="supFormCard">
+        <h3 id="supFormTitle" style="margin-top:0">Enroll supplier</h3>
+        <div class="grid">
+          <div class="full"><label>Supplier name *</label><input id="s_name"></div>
+          <div><label>Contact person</label><input id="s_contact"></div>
+          <div><label>Phone</label><input id="s_phone"></div>
+          <div><label>Email</label><input id="s_email" type="email"></div>
+          <div><label>TIN</label><input id="s_tin"></div>
+          <div class="full"><label>Address</label><input id="s_address"></div>
+          <div><label>Payment terms</label><input id="s_terms" placeholder="e.g. 30 days, COD"></div>
+          <div><label>Status</label><select id="s_status"><option value="active">Active</option><option value="inactive">Inactive</option></select></div>
+          <div class="full"><label>Products supplied</label><textarea id="s_products" placeholder="One per line or comma separated"></textarea></div>
+          <div class="full"><label>Notes</label><textarea id="s_notes"></textarea></div>
+        </div>
+        <div class="bar" style="margin-top:14px">
+          <button class="btn" id="supSave">Save</button>
+          <button class="btn alt" id="supPrint">Print / PDF</button>
+          <button class="btn alt" id="supCancel">Back to list</button>
+          <button class="btn danger" id="supDelete" style="margin-left:auto">Delete</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PURCHASE ORDERS -->
+    <section id="secPO" class="hidden">
+      <div class="card" id="poListCard">
+        <div class="bar">
+          <input id="poSearch" placeholder="Search PO number or supplier...">
+          <select id="poFilter" style="max-width:160px"><option value="">All statuses</option><option>draft</option><option>sent</option><option>received</option><option>cancelled</option></select>
+          <button class="btn" id="poNew">+ New purchase order</button>
+        </div>
+        <div class="tablewrap"><table>
+          <thead><tr><th>PO No.</th><th>Date</th><th>Supplier</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
+          <tbody id="poBody"></tbody>
+        </table></div>
+      </div>
+
+      <div class="card hidden" id="poFormCard">
+        <div class="bar" style="justify-content:space-between">
+          <h3 id="poFormTitle" style="margin:0">New purchase order</h3>
+          <div><span class="pill" id="poLockBadge"></span> <button class="btn alt sm hidden" id="poToggleEdit">Enable editing</button></div>
+        </div>
+        <div class="grid">
+          <div><label>PO number</label><input id="p_no" readonly></div>
+          <div><label>Status</label><select id="p_status"><option>draft</option><option>sent</option><option>received</option><option>cancelled</option></select></div>
+          <div class="full"><label>Supplier *</label><select id="p_supplier"></select></div>
+          <div><label>PO date *</label><input id="p_date" type="date"></div>
+          <div><label>Expected delivery</label><input id="p_expected" type="date"></div>
+          <div class="full"><label>Notes / delivery instructions</label><textarea id="p_notes"></textarea></div>
+        </div>
+        <h4 style="margin:18px 0 6px">Items</h4>
+        <div class="tablewrap"><table class="items-table">
+          <thead><tr><th>Description</th><th style="width:90px">Unit</th><th style="width:90px" class="num">Qty</th><th style="width:120px" class="num">Unit price</th><th style="width:120px" class="num">Amount</th><th style="width:40px"></th></tr></thead>
+          <tbody id="itemsBody"></tbody>
+        </table></div>
+        <button class="btn alt sm" id="addItem" style="margin-top:8px">+ Add item</button>
+        <div class="total-row">Total: <span id="p_total">₱0.00</span></div>
+        <div class="bar" style="margin-top:14px">
+          <button class="btn" id="poSave">Save</button>
+          <button class="btn alt" id="poPrint">Print / PDF</button>
+          <button class="btn alt" id="poCancel">Back to list</button>
+          <button class="btn danger" id="poDelete" style="margin-left:auto">Delete</button>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="printArea"></div>
+
+<script>
+/* ================== CONFIG ================== */
+const CONFIG = {
+  endpoint: 'https://sgp.cloud.appwrite.io/v1',
+  projectId: '6b019a85003100c1e10c',
+  databaseId: 'supplier_po',
+  suppliers: 'suppliers',
+  purchaseOrders: 'purchase_orders',
+  poItems: 'po_items',
+  company: 'Cadlao Resort and Restaurant',
+  currency: '₱'
+};
+
+const { Client, Account, Databases, ID, Query } = Appwrite;
+const client = new Client().setEndpoint(CONFIG.endpoint).setProject(CONFIG.projectId);
+const account = new Account(client);
+const db = new Databases(client);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => CONFIG.currency + (Number(n)||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const dateOnly = s => s ? String(s).slice(0,10) : '';
+const toISO = d => d ? d + 'T00:00:00.000+00:00' : null;
+const prettyDate = s => { const d = dateOnly(s); if(!d) return ''; return new Date(d+'T00:00:00').toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'}); };
+
+let user = null;
+let suppliers = [];
+let pos = [];
+let currentSup = null;   // document or null (new)
+let currentPO = null;
+let poEditable = true;
+
+function flash(text, ok=true){
+  const m = $('globalMsg');
+  m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err');
+  clearTimeout(flash.t); flash.t = setTimeout(()=> m.className='msg hidden', 4500);
+}
+const errText = e => (e && e.message) ? e.message : String(e);
+
+/* ================== AUTH ================== */
+async function boot(){
+  try { user = await account.get(); showApp(); }
+  catch { showLogin(); }
+}
+function showLogin(){ $('login').classList.remove('hidden'); $('app').classList.add('hidden'); }
+async function showApp(){
+  $('login').classList.add('hidden'); $('app').classList.remove('hidden');
+  $('whoEmail').textContent = user.email;
+  await loadAll();
+}
+$('lBtn').onclick = async () => {
+  $('loginErr').classList.add('hidden');
+  try{
+    await account.createEmailPasswordSession($('lEmail').value.trim(), $('lPass').value);
+    user = await account.get();
+    $('lPass').value='';
+    showApp();
+  }catch(e){ $('loginErr').textContent = errText(e); $('loginErr').classList.remove('hidden'); }
+};
+$('lPass').addEventListener('keydown', e => { if(e.key==='Enter') $('lBtn').click(); });
+$('logoutBtn').onclick = async () => { try{ await account.deleteSession('current'); }catch{} user=null; showLogin(); };
+
+/* ================== TABS ================== */
+$('tabSup').onclick = () => setTab('sup');
+$('tabPO').onclick = () => setTab('po');
+function setTab(t){
+  $('tabSup').classList.toggle('active', t==='sup');
+  $('tabPO').classList.toggle('active', t==='po');
+  $('secSup').classList.toggle('hidden', t!=='sup');
+  $('secPO').classList.toggle('hidden', t!=='po');
+}
+
+/* ================== DATA LOAD ================== */
+async function listAll(col, queries=[]){
+  let out = [], offset = 0;
+  while(true){
+    const r = await db.listDocuments(CONFIG.databaseId, col, [...queries, Query.limit(100), Query.offset(offset)]);
+    out = out.concat(r.documents);
+    if(out.length >= r.total || r.documents.length === 0) break;
+    offset += 100;
+  }
+  return out;
+}
+async function loadAll(){
+  try{
+    [suppliers, pos] = await Promise.all([
+      listAll(CONFIG.suppliers, [Query.orderAsc('name')]),
+      listAll(CONFIG.purchaseOrders, [Query.orderDesc('$createdAt')])
+    ]);
+    renderSuppliers(); renderPOs();
+  }catch(e){ flash('Could not load data: ' + errText(e), false); }
+}
+const supName = id => (suppliers.find(s => s.$id === id) || {}).name || '(deleted supplier)';
+
+/* ================== SUPPLIERS ================== */
+function renderSuppliers(){
+  const q = $('supSearch').value.toLowerCase().trim();
+  const f = $('supFilter').value;
+  const rows = suppliers.filter(s =>
+    (!f || s.status === f) &&
+    (!q || [s.name, s.contact_person, s.products, s.email].join(' ').toLowerCase().includes(q)));
+  $('supBody').innerHTML = rows.length ? rows.map(s => `
+    <tr>
+      <td><strong>${esc(s.name)}</strong><div class="muted">${esc(s.email||'')}</div></td>
+      <td>${esc(s.contact_person||'')}<div class="muted">${esc(s.phone||'')}</div></td>
+      <td class="muted">${esc((s.products||'').slice(0,90))}${(s.products||'').length>90?'…':''}</td>
+      <td><span class="pill ${esc(s.status)}">${esc(s.status)}</span></td>
+      <td><div class="row-actions">
+        <button class="btn alt sm" onclick="openSupplier('${s.$id}')">Open</button>
+        <button class="btn alt sm" onclick="printSupplier('${s.$id}')">Print</button>
+      </div></td>
+    </tr>`).join('') : '<tr><td colspan="5" class="muted">No suppliers found.</td></tr>';
+  fillSupplierSelect();
+}
+$('supSearch').oninput = renderSuppliers;
+$('supFilter').onchange = renderSuppliers;
+
+function showSupForm(show){
+  $('supListCard').classList.toggle('hidden', show);
+  $('supFormCard').classList.toggle('hidden', !show);
+}
+$('supNew').onclick = () => {
+  currentSup = null;
+  ['s_name','s_contact','s_phone','s_email','s_tin','s_address','s_terms','s_products','s_notes'].forEach(i => $(i).value='');
+  $('s_status').value = 'active';
+  $('supFormTitle').textContent = 'Enroll supplier';
+  $('supDelete').classList.add('hidden');
+  showSupForm(true);
+};
+window.openSupplier = id => {
+  const s = suppliers.find(x => x.$id === id); if(!s) return;
+  currentSup = s;
+  $('s_name').value = s.name||''; $('s_contact').value = s.contact_person||''; $('s_phone').value = s.phone||'';
+  $('s_email').value = s.email||''; $('s_tin').value = s.tin||''; $('s_address').value = s.address||'';
+  $('s_terms').value = s.payment_terms||''; $('s_status').value = s.status||'active';
+  $('s_products').value = s.products||''; $('s_notes').value = s.notes||'';
+  $('supFormTitle').textContent = 'Supplier: ' + s.name;
+  $('supDelete').classList.remove('hidden');
+  showSupForm(true);
+};
+$('supCancel').onclick = () => showSupForm(false);
+
+function readSupForm(){
+  return {
+    name: $('s_name').value.trim(),
+    contact_person: $('s_contact').value.trim(),
+    phone: $('s_phone').value.trim(),
+    email: $('s_email').value.trim(),
+    tin: $('s_tin').value.trim(),
+    address: $('s_address').value.trim(),
+    payment_terms: $('s_terms').value.trim(),
+    status: $('s_status').value,
+    products: $('s_products').value.trim(),
+    notes: $('s_notes').value.trim()
+  };
+}
+$('supSave').onclick = async () => {
+  const data = readSupForm();
+  if(!data.name){ flash('Supplier name is required.', false); return; }
+  try{
+    if(currentSup){
+      currentSup = await db.updateDocument(CONFIG.databaseId, CONFIG.suppliers, currentSup.$id, data);
+      flash('Supplier updated.');
+    }else{
+      currentSup = await db.createDocument(CONFIG.databaseId, CONFIG.suppliers, ID.unique(), data);
+      flash('Supplier enrolled.');
+      $('supDelete').classList.remove('hidden');
+      $('supFormTitle').textContent = 'Supplier: ' + currentSup.name;
+    }
+    await loadAll();
+  }catch(e){ flash('Save failed: ' + errText(e), false); }
+};
+$('supDelete').onclick = async () => {
+  if(!currentSup) return;
+  if(pos.some(p => p.supplier_id === currentSup.$id)){
+    flash('This supplier has purchase orders. Set it to Inactive instead of deleting.', false); return;
+  }
+  if(!confirm('Delete this supplier permanently?')) return;
+  try{ await db.deleteDocument(CONFIG.databaseId, CONFIG.suppliers, currentSup.$id); currentSup=null; showSupForm(false); flash('Supplier deleted.'); await loadAll(); }
+  catch(e){ flash('Delete failed: ' + errText(e), false); }
+};
+$('supPrint').onclick = () => {
+  const d = readSupForm();
+  if(!d.name){ flash('Enter the supplier details first.', false); return; }
+  printSupplierData(d, currentSup ? currentSup.$createdAt : new Date().toISOString());
+};
+window.printSupplier = id => { const s = suppliers.find(x => x.$id === id); if(s) printSupplierData(s, s.$createdAt); };
+
+/* ================== PRINT HELPERS ================== */
+function signatureBlock(){
+  return `
+  <div class="sigs">
+    <div class="sig"><div class="label">Prepared by:</div><div class="line">${esc(user.email)}</div><div class="role">Date: ____________</div></div>
+    <div class="sig"><div class="label">Reviewed by:</div><div class="line">&nbsp;</div><div class="role">Operations Manager / Admin Manager</div><div class="role">Date: ____________</div></div>
+    <div class="sig"><div class="label">Approved by:</div><div class="line">&nbsp;</div><div class="role">General Manager</div><div class="role">Date: ____________</div></div>
+  </div>`;
+}
+function doPrint(html){
+  $('printArea').innerHTML = html;
+  const t = document.title; document.title = 'Cadlao-' + Date.now();
+  setTimeout(() => { window.print(); document.title = t; }, 100);
+}
+function printHeader(title){
+  return `<h1>${esc(CONFIG.company)}</h1><div class="sub">Printed ${new Date().toLocaleString('en-PH')}</div><h2>${esc(title)}</h2>`;
+}
+function printSupplierData(s, created){
+  const prods = (s.products||'').trim();
+  doPrint(`
+    ${printHeader('Supplier Enrollment Form')}
+    <table class="kv">
+      <tr><td>Supplier name</td><td>${esc(s.name)}</td></tr>
+      <tr><td>Status</td><td>${esc(s.status)}</td></tr>
+      <tr><td>Contact person</td><td>${esc(s.contact_person)}</td></tr>
+      <tr><td>Phone</td><td>${esc(s.phone)}</td></tr>
+      <tr><td>Email</td><td>${esc(s.email)}</td></tr>
+      <tr><td>Address</td><td>${esc(s.address)}</td></tr>
+      <tr><td>TIN</td><td>${esc(s.tin)}</td></tr>
+      <tr><td>Payment terms</td><td>${esc(s.payment_terms)}</td></tr>
+      <tr><td>Products supplied</td><td class="pre">${esc(prods)}</td></tr>
+      <tr><td>Notes</td><td class="pre">${esc(s.notes)}</td></tr>
+      <tr><td>Date enrolled</td><td>${esc(prettyDate(created))}</td></tr>
+    </table>
+    ${signatureBlock()}`);
+}
+
+/* ================== PURCHASE ORDERS ================== */
+function renderPOs(){
+  const q = $('poSearch').value.toLowerCase().trim();
+  const f = $('poFilter').value;
+  const rows = pos.filter(p =>
+    (!f || p.status === f) &&
+    (!q || (p.po_number + ' ' + supName(p.supplier_id)).toLowerCase().includes(q)));
+  $('poBody').innerHTML = rows.length ? rows.map(p => `
+    <tr>
+      <td><strong>${esc(p.po_number)}</strong></td>
+      <td>${esc(dateOnly(p.po_date))}</td>
+      <td>${esc(supName(p.supplier_id))}</td>
+      <td><span class="pill ${esc(p.status)}">${esc(p.status)}</span></td>
+      <td class="num">${money(p.total)}</td>
+      <td><div class="row-actions">
+        <button class="btn alt sm" onclick="openPO('${p.$id}')">Open</button>
+        <button class="btn alt sm" onclick="printPOById('${p.$id}')">Print</button>
+      </div></td>
+    </tr>`).join('') : '<tr><td colspan="6" class="muted">No purchase orders found.</td></tr>';
+}
+$('poSearch').oninput = renderPOs;
+$('poFilter').onchange = renderPOs;
+
+function fillSupplierSelect(){
+  const sel = $('p_supplier'); const cur = sel.value;
+  const active = suppliers.filter(s => s.status === 'active' || s.$id === cur || (currentPO && currentPO.supplier_id === s.$id));
+  sel.innerHTML = '<option value="">Select supplier…</option>' + active.map(s => `<option value="${s.$id}">${esc(s.name)}</option>`).join('');
+  sel.value = cur;
+}
+function nextPONumber(){
+  const y = new Date().getFullYear();
+  let max = 0;
+  pos.forEach(p => { const m = /^PO-(\d{4})-(\d+)$/.exec(p.po_number||''); if(m && +m[1]===y) max = Math.max(max, +m[2]); });
+  return `PO-${y}-${String(max+1).padStart(4,'0')}`;
+}
+function showPOForm(show){
+  $('poListCard').classList.toggle('hidden', show);
+  $('poFormCard').classList.toggle('hidden', !show);
+}
+function setPOEditable(on){
+  poEditable = on;
+  ['p_status','p_supplier','p_date','p_expected','p_notes'].forEach(i => $(i).disabled = !on);
+  document.querySelectorAll('#itemsBody input').forEach(i => i.disabled = !on);
+  document.querySelectorAll('#itemsBody .rm').forEach(b => b.classList.toggle('hidden', !on));
+  $('addItem').classList.toggle('hidden', !on);
+  $('poSave').classList.toggle('hidden', !on);
+  const isNew = !currentPO;
+  $('poToggleEdit').classList.toggle('hidden', isNew);
+  $('poToggleEdit').textContent = on ? 'Lock (cancel editing)' : 'Enable editing';
+  $('poLockBadge').textContent = on ? 'Editing' : 'Locked';
+}
+function addItemRow(it={}){
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input class="i-desc" value="${esc(it.description||'')}"></td>
+    <td><input class="i-unit" value="${esc(it.unit||'')}"></td>
+    <td><input class="i-qty num" type="number" min="0" step="any" value="${it.quantity ?? ''}"></td>
+    <td><input class="i-price num" type="number" min="0" step="any" value="${it.unit_price ?? ''}"></td>
+    <td class="num i-amt">${money((it.quantity||0)*(it.unit_price||0))}</td>
+    <td><button class="btn danger sm rm" type="button">×</button></td>`;
+  $('itemsBody').appendChild(tr);
+  tr.querySelectorAll('input').forEach(i => i.oninput = recalc);
+  tr.querySelector('.rm').onclick = () => { tr.remove(); recalc(); };
+  tr.querySelectorAll('input').forEach(i => i.disabled = !poEditable);
+}
+function readItems(){
+  return [...document.querySelectorAll('#itemsBody tr')].map(tr => {
+    const quantity = parseFloat(tr.querySelector('.i-qty').value) || 0;
+    const unit_price = parseFloat(tr.querySelector('.i-price').value) || 0;
+    return {
+      description: tr.querySelector('.i-desc').value.trim(),
+      unit: tr.querySelector('.i-unit').value.trim(),
+      quantity, unit_price,
+      line_total: Math.round(quantity * unit_price * 100) / 100
+    };
+  }).filter(i => i.description);
+}
+function recalc(){
+  let total = 0;
+  document.querySelectorAll('#itemsBody tr').forEach(tr => {
+    const a = (parseFloat(tr.querySelector('.i-qty').value)||0) * (parseFloat(tr.querySelector('.i-price').value)||0);
+    tr.querySelector('.i-amt').textContent = money(a);
+    total += a;
+  });
+  $('p_total').textContent = money(total);
+}
+$('addItem').onclick = () => addItemRow();
+
+$('poNew').onclick = () => {
+  currentPO = null;
+  $('poFormTitle').textContent = 'New purchase order';
+  $('p_no').value = nextPONumber();
+  $('p_status').value = 'draft';
+  $('p_date').value = new Date().toISOString().slice(0,10);
+  $('p_expected').value = ''; $('p_notes').value = '';
+  $('itemsBody').innerHTML = ''; addItemRow();
+  fillSupplierSelect(); $('p_supplier').value = '';
+  $('poDelete').classList.add('hidden');
+  setPOEditable(true); recalc(); showPOForm(true);
+};
+window.openPO = async id => {
+  const p = pos.find(x => x.$id === id); if(!p) return;
+  try{
+    const items = await listAll(CONFIG.poItems, [Query.equal('po_id', id), Query.orderAsc('$createdAt')]);
+    currentPO = p;
+    $('poFormTitle').textContent = 'Purchase order ' + p.po_number;
+    $('p_no').value = p.po_number; $('p_status').value = p.status;
+    fillSupplierSelect(); $('p_supplier').value = p.supplier_id;
+    $('p_date').value = dateOnly(p.po_date); $('p_expected').value = dateOnly(p.expected_date);
+    $('p_notes').value = p.notes || '';
+    $('itemsBody').innerHTML = ''; items.forEach(addItemRow); if(!items.length) addItemRow();
+    $('poDelete').classList.remove('hidden');
+    setPOEditable(false); recalc(); showPOForm(true);
+  }catch(e){ flash('Could not open PO: ' + errText(e), false); }
+};
+$('poToggleEdit').onclick = () => {
+  if(poEditable && currentPO){ openPO(currentPO.$id); } else { setPOEditable(true); }
+};
+$('poCancel').onclick = () => showPOForm(false);
+
+$('poSave').onclick = async () => {
+  const supplier_id = $('p_supplier').value;
+  const po_date = $('p_date').value;
+  const items = readItems();
+  if(!supplier_id){ flash('Select a supplier.', false); return; }
+  if(!po_date){ flash('PO date is required.', false); return; }
+  if(!items.length){ flash('Add at least one item with a description.', false); return; }
+  const total = Math.round(items.reduce((s,i)=>s+i.line_total,0)*100)/100;
+  const data = {
+    po_number: $('p_no').value, supplier_id, po_date: toISO(po_date),
+    expected_date: toISO($('p_expected').value), status: $('p_status').value,
+    notes: $('p_notes').value.trim(), total
+  };
+  $('poSave').disabled = true;
+  try{
+    let doc;
+    if(currentPO){
+      doc = await db.updateDocument(CONFIG.databaseId, CONFIG.purchaseOrders, currentPO.$id, data);
+      const old = await listAll(CONFIG.poItems, [Query.equal('po_id', doc.$id)]);
+      await Promise.all(old.map(o => db.deleteDocument(CONFIG.databaseId, CONFIG.poItems, o.$id)));
+    }else{
+      data.po_number = nextPONumber();
+      doc = await db.createDocument(CONFIG.databaseId, CONFIG.purchaseOrders, ID.unique(), data);
+    }
+    for(const it of items){
+      await db.createDocument(CONFIG.databaseId, CONFIG.poItems, ID.unique(), { ...it, po_id: doc.$id });
+    }
+    flash('Purchase order saved: ' + doc.po_number);
+    await loadAll();
+    await openPO(doc.$id);
+  }catch(e){ flash('Save failed: ' + errText(e), false); }
+  finally{ $('poSave').disabled = false; }
+};
+$('poDelete').onclick = async () => {
+  if(!currentPO) return;
+  if(!confirm('Delete PO ' + currentPO.po_number + ' permanently?')) return;
+  try{
+    const old = await listAll(CONFIG.poItems, [Query.equal('po_id', currentPO.$id)]);
+    await Promise.all(old.map(o => db.deleteDocument(CONFIG.databaseId, CONFIG.poItems, o.$id)));
+    await db.deleteDocument(CONFIG.databaseId, CONFIG.purchaseOrders, currentPO.$id);
+    currentPO = null; showPOForm(false); flash('Purchase order deleted.'); await loadAll();
+  }catch(e){ flash('Delete failed: ' + errText(e), false); }
+};
+
+/* PO printing */
+function printPOData(po, supplier, items){
+  const rows = items.map((i,n) => `<tr><td>${n+1}</td><td>${esc(i.description)}</td><td>${esc(i.unit)}</td>
+    <td style="text-align:right">${i.quantity}</td><td style="text-align:right">${money(i.unit_price)}</td>
+    <td style="text-align:right">${money(i.line_total ?? i.quantity*i.unit_price)}</td></tr>`).join('');
+  const total = items.reduce((s,i)=> s + (i.line_total ?? i.quantity*i.unit_price), 0);
+  doPrint(`
+    ${printHeader('Purchase Order')}
+    <table class="kv">
+      <tr><td>PO number</td><td>${esc(po.po_number)}</td></tr>
+      <tr><td>PO date</td><td>${esc(prettyDate(po.po_date))}</td></tr>
+      <tr><td>Expected delivery</td><td>${esc(prettyDate(po.expected_date))}</td></tr>
+      <tr><td>Status</td><td>${esc(po.status)}</td></tr>
+      <tr><td>Supplier</td><td>${esc(supplier.name)}</td></tr>
+      <tr><td>Contact</td><td>${esc([supplier.contact_person, supplier.phone].filter(Boolean).join(' · '))}</td></tr>
+      <tr><td>Address</td><td>${esc(supplier.address)}</td></tr>
+      <tr><td>Payment terms</td><td>${esc(supplier.payment_terms)}</td></tr>
+    </table>
+    <table class="lines" style="width:100%;border-collapse:collapse;margin-top:14px">
+      <thead><tr><th>#</th><th>Description</th><th>Unit</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
+      <tbody>${rows}
+        <tr><td colspan="5" style="text-align:right"><strong>TOTAL</strong></td><td style="text-align:right"><strong>${money(total)}</strong></td></tr>
+      </tbody>
+    </table>
+    ${po.notes ? `<p class="pre"><strong>Notes:</strong> ${esc(po.notes)}</p>` : ''}
+    ${signatureBlock()}`);
+}
+$('poPrint').onclick = () => {
+  const supplier = suppliers.find(s => s.$id === $('p_supplier').value);
+  const items = readItems();
+  if(!supplier || !items.length){ flash('Select a supplier and add items first.', false); return; }
+  printPOData({
+    po_number: $('p_no').value, po_date: $('p_date').value, expected_date: $('p_expected').value,
+    status: $('p_status').value, notes: $('p_notes').value.trim()
+  }, supplier, items);
+};
+window.printPOById = async id => {
+  const p = pos.find(x => x.$id === id); if(!p) return;
+  try{
+    const items = await listAll(CONFIG.poItems, [Query.equal('po_id', id), Query.orderAsc('$createdAt')]);
+    const s = suppliers.find(x => x.$id === p.supplier_id) || {name:'(deleted supplier)'};
+    printPOData(p, s, items);
+  }catch(e){ flash('Could not print: ' + errText(e), false); }
+};
+
+boot();
+</script>
+</body>
+</html>
