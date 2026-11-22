@@ -52,6 +52,23 @@
   .items-table input{padding:6px 7px}
   .total-row{text-align:right;font-size:17px;font-weight:600;margin-top:10px}
 
+  .pill.pending{background:#fdf0d5;color:#8a5a00}
+  .pill.partially-paid{background:#e1ecfa;color:#1a56a3}
+  .pill.fully-paid{background:#dff3e7;color:var(--ok)}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:99px;padding:7px 14px;font:inherit;cursor:pointer;color:var(--ink)}
+  .chip.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .pies{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:820px){.pies{grid-template-columns:1fr}}
+  .pie-wrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+  .pie-wrap svg{width:200px;height:200px;flex:none}
+  .legend{flex:1;min-width:180px;font-size:13px}
+  .legend div{display:flex;align-items:center;gap:8px;padding:3px 0}
+  .legend .sw{width:12px;height:12px;border-radius:3px;flex:none}
+  .legend .lbl{flex:1;overflow:hidden;text-overflow:ellipsis}
+  .legend .val{color:var(--muted);white-space:nowrap}
+  .legend .pct{font-weight:600;min-width:48px;text-align:right}
+
   /* ---------- print ---------- */
   #printArea{display:none}
   @media print{
@@ -66,6 +83,9 @@
   #printArea .sub{text-align:center;font-size:11px;margin-bottom:6px}
   #printArea table.kv td{border:0;padding:4px 6px;vertical-align:top}
   #printArea table.kv td:first-child{width:150px;font-weight:bold}
+  #printArea table.kv4{width:100%;border-collapse:collapse}
+  #printArea table.kv4 td{border:0;padding:3px 6px;vertical-align:top;width:32%}
+  #printArea table.kv4 td.k{width:18%;font-weight:bold}
   #printArea table.lines th,#printArea table.lines td{border:1px solid #000;padding:5px 7px;font-size:12px;color:#000}
   #printArea table.lines th{background:#eee}
   #printArea .sigs{display:flex;gap:28px;margin-top:70px}
@@ -97,14 +117,46 @@
     <div class="who"><span id="whoEmail"></span> &nbsp; <button class="btn alt sm" id="logoutBtn">Sign out</button></div>
   </header>
   <nav>
-    <button id="tabSup" class="active">Suppliers</button>
+    <button id="tabDash" class="active">Dashboard</button>
+    <button id="tabSup">Suppliers</button>
     <button id="tabPO">Purchase Orders</button>
   </nav>
   <main>
     <div id="globalMsg" class="msg hidden"></div>
 
     <!-- SUPPLIERS -->
-    <section id="secSup">
+    <!-- DASHBOARD -->
+    <section id="secDash">
+      <div class="card">
+        <div class="bar">
+          <div class="chips" id="dChips">
+            <button class="chip active" data-s="">All</button>
+            <button class="chip" data-s="approved">Approved</button>
+            <button class="chip" data-s="reviewed">Reviewed</button>
+            <button class="chip" data-s="cancelled">Cancelled</button>
+            <button class="chip" data-s="delivered">Delivered</button>
+          </div>
+          <select id="dMetric" style="max-width:220px;flex:none">
+            <option value="count">Charts by number of POs</option>
+            <option value="amount">Charts by amount</option>
+          </select>
+        </div>
+        <div id="dSummary" class="muted"></div>
+      </div>
+      <div class="pies">
+        <div class="card"><h3 style="margin-top:0">Department orders</h3><div id="pieDept"></div></div>
+        <div class="card"><h3 style="margin-top:0">Supplier shares</h3><div id="pieSup"></div></div>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Purchase orders <span class="muted" id="dListLabel"></span></h3>
+        <div class="tablewrap"><table>
+          <thead><tr><th>PO No.</th><th>Date</th><th>Supplier</th><th>Department</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
+          <tbody id="dBody"></tbody>
+        </table></div>
+      </div>
+    </section>
+
+    <section id="secSup" class="hidden">
       <div class="card" id="supListCard">
         <div class="bar">
           <input id="supSearch" placeholder="Search name, contact or products...">
@@ -161,7 +213,7 @@
           <button class="btn" id="poNew">+ New purchase order</button>
         </div>
         <div class="tablewrap"><table>
-          <thead><tr><th>PO No.</th><th>Date</th><th>Supplier</th><th>Status</th><th class="num">Total</th><th></th></tr></thead>
+          <thead><tr><th>PO No.</th><th>Date</th><th>Supplier</th><th>Dept</th><th>Status</th><th>Payment</th><th class="num">Total</th><th></th></tr></thead>
           <tbody id="poBody"></tbody>
         </table></div>
       </div>
@@ -177,6 +229,25 @@
           <div class="full"><label>Supplier *</label><select id="p_supplier"></select></div>
           <div><label>PO date *</label><input id="p_date" type="date"></div>
           <div><label>Expected delivery</label><input id="p_expected" type="date"></div>
+          <div><label>Requesting department *</label><select id="p_dept">
+            <option value="">Select…</option>
+            <option value="admin">Admin</option>
+            <option value="accounting">Accounting</option>
+            <option value="human resources">Human resources</option>
+            <option value="marketing">Marketing</option>
+            <option value="operations">Operations</option>
+            <option value="front office">Front office</option>
+            <option value="housekeeping">Housekeeping</option>
+            <option value="laundry">Laundry</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="f&amp;b">F&amp;B</option>
+            <option value="kitchen">Kitchen</option>
+            <option value="bar">Bar</option></select></div>
+          <div><label>Payment status</label><select id="p_paystatus">
+            <option value="pending">Pending</option>
+            <option value="partially paid">Partially paid</option>
+            <option value="fully paid">Fully paid</option></select></div>
+          <div><label>OR number</label><input id="p_or"></div>
           <div class="full"><label>Notes / delivery instructions</label><textarea id="p_notes"></textarea></div>
         </div>
         <h4 style="margin:18px 0 6px">Items</h4>
@@ -236,6 +307,8 @@ function flash(text, ok=true){
   m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err');
   clearTimeout(flash.t); flash.t = setTimeout(()=> m.className='msg hidden', 4500);
 }
+const slug = s => String(s ?? '').replace(/\s+/g, '-');
+const deptLabel = s => s === 'f&b' ? 'F&B' : String(s).charAt(0).toUpperCase() + String(s).slice(1);
 const errText = e => (e && e.message) ? e.message : String(e);
 
 /* ================== AUTH ================== */
@@ -262,9 +335,12 @@ $('lPass').addEventListener('keydown', e => { if(e.key==='Enter') $('lBtn').clic
 $('logoutBtn').onclick = async () => { try{ await account.deleteSession('current'); }catch{} user=null; showLogin(); };
 
 /* ================== TABS ================== */
+$('tabDash').onclick = () => setTab('dash');
 $('tabSup').onclick = () => setTab('sup');
 $('tabPO').onclick = () => setTab('po');
 function setTab(t){
+  $('tabDash').classList.toggle('active', t==='dash');
+  $('secDash').classList.toggle('hidden', t!=='dash');
   $('tabSup').classList.toggle('active', t==='sup');
   $('tabPO').classList.toggle('active', t==='po');
   $('secSup').classList.toggle('hidden', t!=='sup');
@@ -288,7 +364,7 @@ async function loadAll(){
       listAll(CONFIG.suppliers, [Query.orderAsc('name')]),
       listAll(CONFIG.purchaseOrders, [Query.orderDesc('$createdAt')])
     ]);
-    renderSuppliers(); renderPOs();
+    renderSuppliers(); renderPOs(); renderDashboard();
   }catch(e){ flash('Could not load data: ' + errText(e), false); }
 }
 const supName = id => (suppliers.find(s => s.$id === id) || {}).name || '(deleted supplier)';
@@ -432,19 +508,21 @@ function renderPOs(){
   const f = $('poFilter').value;
   const rows = pos.filter(p =>
     (!f || p.status === f) &&
-    (!q || (p.po_number + ' ' + supName(p.supplier_id)).toLowerCase().includes(q)));
+    (!q || (p.po_number + ' ' + supName(p.supplier_id) + ' ' + (p.or_number||'') + ' ' + (p.requesting_department||'')).toLowerCase().includes(q)));
   $('poBody').innerHTML = rows.length ? rows.map(p => `
     <tr>
       <td><strong>${esc(p.po_number)}</strong></td>
       <td>${esc(dateOnly(p.po_date))}</td>
       <td>${esc(supName(p.supplier_id))}</td>
+      <td>${esc(p.requesting_department ? deptLabel(p.requesting_department) : '')}</td>
       <td><span class="pill ${esc(p.status)}">${esc(p.status)}</span></td>
+      <td>${p.payment_status ? `<span class="pill ${esc(slug(p.payment_status))}">${esc(p.payment_status)}</span>` : ''}</td>
       <td class="num">${money(p.total)}</td>
       <td><div class="row-actions">
         <button class="btn alt sm" onclick="openPO('${p.$id}')">Open</button>
         <button class="btn alt sm" onclick="printPOById('${p.$id}')">Print</button>
       </div></td>
-    </tr>`).join('') : '<tr><td colspan="6" class="muted">No purchase orders found.</td></tr>';
+    </tr>`).join('') : '<tr><td colspan="8" class="muted">No purchase orders found.</td></tr>';
 }
 $('poSearch').oninput = renderPOs;
 $('poFilter').onchange = renderPOs;
@@ -467,7 +545,7 @@ function showPOForm(show){
 }
 function setPOEditable(on){
   poEditable = on;
-  ['p_status','p_supplier','p_date','p_expected','p_notes'].forEach(i => $(i).disabled = !on);
+  ['p_status','p_supplier','p_date','p_expected','p_notes','p_dept','p_paystatus','p_or'].forEach(i => $(i).disabled = !on);
   document.querySelectorAll('#itemsBody input').forEach(i => i.disabled = !on);
   document.querySelectorAll('#itemsBody .rm').forEach(b => b.classList.toggle('hidden', !on));
   $('addItem').classList.toggle('hidden', !on);
@@ -521,6 +599,7 @@ $('poNew').onclick = () => {
   $('p_status').value = 'submitted';
   $('p_date').value = new Date().toISOString().slice(0,10);
   $('p_expected').value = ''; $('p_notes').value = '';
+  $('p_dept').value = ''; $('p_paystatus').value = 'pending'; $('p_or').value = '';
   $('itemsBody').innerHTML = ''; addItemRow();
   fillSupplierSelect(); $('p_supplier').value = '';
   $('poDelete').classList.add('hidden');
@@ -536,6 +615,9 @@ window.openPO = async id => {
     fillSupplierSelect(); $('p_supplier').value = p.supplier_id;
     $('p_date').value = dateOnly(p.po_date); $('p_expected').value = dateOnly(p.expected_date);
     $('p_notes').value = p.notes || '';
+    $('p_dept').value = p.requesting_department || '';
+    $('p_paystatus').value = p.payment_status || 'pending';
+    $('p_or').value = p.or_number || '';
     $('itemsBody').innerHTML = ''; items.forEach(addItemRow); if(!items.length) addItemRow();
     $('poDelete').classList.remove('hidden');
     setPOEditable(false); recalc(); showPOForm(true);
@@ -552,12 +634,16 @@ $('poSave').onclick = async () => {
   const items = readItems();
   if(!supplier_id){ flash('Select a supplier.', false); return; }
   if(!po_date){ flash('PO date is required.', false); return; }
+  if(!$('p_dept').value){ flash('Select the requesting department.', false); return; }
   if(!items.length){ flash('Add at least one item with a description.', false); return; }
   const total = Math.round(items.reduce((s,i)=>s+i.line_total,0)*100)/100;
   const data = {
     po_number: $('p_no').value, supplier_id, po_date: toISO(po_date),
     expected_date: toISO($('p_expected').value), status: $('p_status').value,
-    notes: $('p_notes').value.trim(), total
+    notes: $('p_notes').value.trim(), total,
+    requesting_department: $('p_dept').value,
+    payment_status: $('p_paystatus').value,
+    or_number: $('p_or').value.trim()
   };
   $('poSave').disabled = true;
   try{
@@ -598,16 +684,13 @@ function printPOData(po, supplier, items){
   const total = items.reduce((s,i)=> s + (i.line_total ?? i.quantity*i.unit_price), 0);
   doPrint(`
     ${printHeader('Purchase Order')}
-    <table class="kv">
-      <tr><td>PO number</td><td>${esc(po.po_number)}</td></tr>
-      <tr><td>PO date</td><td>${esc(prettyDate(po.po_date))}</td></tr>
-      <tr><td>Expected delivery</td><td>${esc(prettyDate(po.expected_date))}</td></tr>
-      <tr><td>Status</td><td>${esc(po.status)}</td></tr>
-      <tr><td>Supplier</td><td>${esc(supplier.name)}</td></tr>
-      <tr><td>Contact</td><td>${esc([supplier.contact_person, supplier.phone].filter(Boolean).join(' · '))}</td></tr>
-      <tr><td>Address</td><td>${esc(supplier.address)}</td></tr>
-      <tr><td>Payment terms</td><td>${esc(supplier.payment_terms)}</td></tr>
-      <tr><td>Mode of payment</td><td>${esc(supplier.mode_of_payment)}</td></tr>
+    <table class="kv4">
+      <tr><td class="k">PO number</td><td>${esc(po.po_number)}</td><td class="k">PO date</td><td>${esc(prettyDate(po.po_date))}</td></tr>
+      <tr><td class="k">Requesting dept.</td><td>${esc(po.requesting_department ? deptLabel(po.requesting_department) : '')}</td><td class="k">Expected delivery</td><td>${esc(prettyDate(po.expected_date))}</td></tr>
+      <tr><td class="k">PO status</td><td>${esc(po.status)}</td><td class="k">Payment status</td><td>${esc(po.payment_status)}</td></tr>
+      <tr><td class="k">OR number</td><td>${esc(po.or_number)}</td><td class="k">Payment terms</td><td>${esc(supplier.payment_terms)}</td></tr>
+      <tr><td class="k">Supplier</td><td>${esc(supplier.name)}</td><td class="k">Mode of payment</td><td>${esc(supplier.mode_of_payment)}</td></tr>
+      <tr><td class="k">Contact</td><td>${esc([supplier.contact_person, supplier.phone].filter(Boolean).join(' · '))}</td><td class="k">Address</td><td>${esc(supplier.address)}</td></tr>
     </table>
     <table class="lines" style="width:100%;border-collapse:collapse;margin-top:14px">
       <thead><tr><th>#</th><th>Description</th><th>Unit</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
@@ -624,7 +707,8 @@ $('poPrint').onclick = () => {
   if(!supplier || !items.length){ flash('Select a supplier and add items first.', false); return; }
   printPOData({
     po_number: $('p_no').value, po_date: $('p_date').value, expected_date: $('p_expected').value,
-    status: $('p_status').value, notes: $('p_notes').value.trim()
+    status: $('p_status').value, notes: $('p_notes').value.trim(),
+    requesting_department: $('p_dept').value, payment_status: $('p_paystatus').value, or_number: $('p_or').value.trim()
   }, supplier, items);
 };
 window.printPOById = async id => {
@@ -635,6 +719,71 @@ window.printPOById = async id => {
     printPOData(p, s, items);
   }catch(e){ flash('Could not print: ' + errText(e), false); }
 };
+
+/* ================== DASHBOARD ================== */
+const PALETTE = ['#0f6e6e','#e07a1f','#3b6fd4','#b8398a','#6aa84f','#c9a227','#7a5af8','#d1495b','#2a9d8f','#8d6e63','#5c7080','#e56399'];
+let dStatus = '';
+
+function pieChart(data, metric){
+  const items = data.filter(d => d.value > 0).sort((a,b) => b.value - a.value);
+  const total = items.reduce((s,d) => s + d.value, 0);
+  if(!total) return '<p class="muted">No data for this filter.</p>';
+  const C = 100, R = 92;
+  let a = -Math.PI/2, paths = '', labels = '';
+  items.forEach((d,i) => {
+    const frac = d.value / total, color = PALETTE[i % PALETTE.length];
+    d.color = color; d.pct = frac * 100;
+    const tip = `<title>${esc(d.label)}: ${d.pct.toFixed(1)}%</title>`;
+    if(items.length === 1){
+      paths += `<circle cx="${C}" cy="${C}" r="${R}" fill="${color}">${tip}</circle>`;
+      labels += `<text x="${C}" y="${C+4}" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">100%</text>`;
+    }else{
+      const a2 = a + frac * 2 * Math.PI;
+      const x1 = C + R*Math.cos(a),  y1 = C + R*Math.sin(a);
+      const x2 = C + R*Math.cos(a2), y2 = C + R*Math.sin(a2);
+      paths += `<path d="M${C},${C} L${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${frac>0.5?1:0} 1 ${x2.toFixed(2)},${y2.toFixed(2)} Z" fill="${color}" stroke="#fff" stroke-width="1.5">${tip}</path>`;
+      if(frac >= 0.06){
+        const m = a + frac * Math.PI;
+        labels += `<text x="${(C + R*0.64*Math.cos(m)).toFixed(1)}" y="${(C + R*0.64*Math.sin(m) + 4).toFixed(1)}" text-anchor="middle" fill="#fff" font-size="11" font-weight="700">${d.pct.toFixed(0)}%</text>`;
+      }
+      a = a2;
+    }
+  });
+  const fmt = v => metric === 'amount' ? money(v) : v + (v === 1 ? ' PO' : ' POs');
+  const legend = items.map(d => `<div><span class="sw" style="background:${d.color}"></span><span class="lbl" title="${esc(d.label)}">${esc(d.label)}</span><span class="val">${fmt(d.value)}</span><span class="pct">${d.pct.toFixed(1)}%</span></div>`).join('');
+  return `<div class="pie-wrap"><svg viewBox="0 0 200 200" role="img">${paths}${labels}</svg><div class="legend">${legend}</div></div>`;
+}
+
+function renderDashboard(){
+  const metric = $('dMetric').value;
+  const list = pos.filter(p => !dStatus || p.status === dStatus);
+  const agg = keyFn => {
+    const m = {};
+    list.forEach(p => { const k = keyFn(p); m[k] = (m[k] || 0) + (metric === 'amount' ? (Number(p.total) || 0) : 1); });
+    return Object.entries(m).map(([label, value]) => ({label, value}));
+  };
+  $('pieDept').innerHTML = pieChart(agg(p => p.requesting_department ? deptLabel(p.requesting_department) : 'Unspecified'), metric);
+  $('pieSup').innerHTML = pieChart(agg(p => supName(p.supplier_id)), metric);
+  const sum = list.reduce((s,p) => s + (Number(p.total) || 0), 0);
+  $('dSummary').textContent = `${list.length} purchase order${list.length === 1 ? '' : 's'} · ${money(sum)} total` + (dStatus ? ` · filter: ${dStatus}` : '');
+  $('dListLabel').textContent = dStatus ? '(' + dStatus + ')' : '(all)';
+  $('dBody').innerHTML = list.length ? list.map(p => `
+    <tr>
+      <td><strong>${esc(p.po_number)}</strong></td>
+      <td>${esc(dateOnly(p.po_date))}</td>
+      <td>${esc(supName(p.supplier_id))}</td>
+      <td>${esc(p.requesting_department ? deptLabel(p.requesting_department) : '')}</td>
+      <td><span class="pill ${esc(p.status)}">${esc(p.status)}</span></td>
+      <td class="num">${money(p.total)}</td>
+      <td><button class="btn alt sm" onclick="setTab('po');openPO('${p.$id}')">Open</button></td>
+    </tr>`).join('') : '<tr><td colspan="7" class="muted">No purchase orders match this filter.</td></tr>';
+}
+document.querySelectorAll('#dChips .chip').forEach(b => b.onclick = () => {
+  dStatus = b.dataset.s;
+  document.querySelectorAll('#dChips .chip').forEach(x => x.classList.toggle('active', x === b));
+  renderDashboard();
+});
+$('dMetric').onchange = renderDashboard;
 
 boot();
 </script>
